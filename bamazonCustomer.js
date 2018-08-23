@@ -1,5 +1,7 @@
 let mysql = require('mysql')
 let inquirer = require('inquirer')
+let stockQuantity
+let itemID
 
 let connection = mysql.createConnection({
     host: 'localhost',
@@ -13,10 +15,8 @@ connection.connect(function(err) {
     if (err) throw err;
     else {
         console.log(`Connected as id ${connection.threadId}`)
-        getAllProducts()
-        
-    }
-    
+        getAllProducts()    
+    } 
 })
 
 function getAllProducts() {
@@ -27,8 +27,7 @@ function getAllProducts() {
             console.log('==============================')
             for (i=0; i < res.length; i++){    
                 console.log(res[i].item_id + ' | ' + res[i].product_name + ' | ' +  res[i].price)
-            }
-                       
+            }                
         }
         askQuestions()
     })
@@ -46,8 +45,8 @@ function askQuestions() {
     message: 'Please select the quantity you would like to buy',
     choices: 0
 }]).then(answer => {
-    let itemID = answer.selectItems
-    let itemQuantity = answer.selectQuantity
+    let itemID = parseInt(answer.selectItems)
+    let itemQuantity = parseInt(answer.selectQuantity)
     function purchaseProducts() {
         let query = connection.query(
             'SELECT * FROM products WHERE item_id = ?',
@@ -60,26 +59,33 @@ function askQuestions() {
                     } else {
                         console.log('Insufficient Quantity!')
                     }
+                    stockQuantity = res[0].stock_quantity
+                    itemID = res[0].item_id
+                    updateQuantity()
                 }
             }
         )
+        
+         
     }
     function updateQuantity() {
         let query = connection.query(
-            'UPDATE products SET ? WHERE ?',
-            [{stock_quantity: (- itemQuantity},
-             {item_id: itemID}],
+            'UPDATE products SET stock_quantity = (SELECT stock_quantity - ?) WHERE item_id = ?',
+            [itemQuantity,
+             itemID],
             function(err,res){
                 if (err) throw err;
                 else {
-                    console.log('updated')
+                    console.log('Stock Quantity updated to reflect purchase')
+                    connection.end()
                 }
             }
         )
+        console.log(query.sql)
     }
     purchaseProducts()
-    updateQuantity()
-    connection.end()   
+    
+   
 })
 }
 
